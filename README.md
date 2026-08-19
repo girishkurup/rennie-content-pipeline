@@ -28,9 +28,9 @@ status while a run is in progress.
 For the full technical breakdown — every hop from the frontend to the
 Orchestrator's AgentCore Runtime endpoint, the Step Functions state
 machine's actual states, IAM requirements, and file-by-file repo layout —
-see the architecture diagram (shared separately) or read through
-`terraform/` and `agents/` directly; the code comments carry a lot of the
-"why," not just the "what."
+see [`docs/architecture.html`](docs/architecture.html) (open it directly in
+a browser, it's self-contained) or read through `terraform/` and `agents/`
+directly; the code comments carry a lot of the "why," not just the "what."
 
 ## Architecture at a glance
 

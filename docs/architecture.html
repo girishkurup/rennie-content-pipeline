@@ -1,0 +1,892 @@
+<title>Rennie Pipeline Architecture</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-2: #eef0f6;
+    --border: #d8dce6;
+    --ink: #171b2e;
+    --ink-muted: #5c6479;
+    --accent: #3b4fd9;
+    --accent-soft: #e4e8fc;
+    --warm: #b85e1a;
+    --warm-soft: #fbeadc;
+    --danger: #a8341f;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1220;
+      --surface: #171c2e;
+      --surface-2: #1f2540;
+      --border: #2b3350;
+      --ink: #e8eaf2;
+      --ink-muted: #9aa1bc;
+      --accent: #7c8fff;
+      --accent-soft: #232a52;
+      --warm: #f0a059;
+      --warm-soft: #3a2a1c;
+      --danger: #ef7a63;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0e1220;
+    --surface: #171c2e;
+    --surface-2: #1f2540;
+    --border: #2b3350;
+    --ink: #e8eaf2;
+    --ink-muted: #9aa1bc;
+    --accent: #7c8fff;
+    --accent-soft: #232a52;
+    --warm: #f0a059;
+    --warm-soft: #3a2a1c;
+    --danger: #ef7a63;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 48px 24px 96px;
+  }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+  .wrap-wide { max-width: 1240px; margin: 0 auto; }
+
+  h1, h2, h3, .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+
+  .subtitle {
+    color: var(--ink-muted);
+    font-size: 16px;
+    margin: 0 0 4px;
+    max-width: 62ch;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0 44px;
+  }
+
+  .chip {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--ink-muted);
+    background: var(--surface);
+  }
+
+  figure { margin: 0; }
+
+  .diagram-shell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+
+  svg.arch { display: block; width: 100%; height: auto; min-width: 900px; }
+
+  .node rect { fill: var(--surface); stroke: var(--border); stroke-width: 1.4; }
+  .node-title { font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: 13px; font-weight: 700; fill: var(--ink); }
+  .node-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: var(--ink-muted); }
+
+  .node-human rect { stroke: var(--warm); fill: var(--warm-soft); stroke-width: 1.6; }
+  .node-agent rect { stroke: var(--accent); fill: var(--accent-soft); stroke-width: 1.6; }
+  .node-store rect { stroke: var(--border); fill: var(--surface-2); stroke-dasharray: 0; }
+
+  .mini rect { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.2; }
+  .mini text { font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: 10.5px; fill: var(--ink); text-anchor: middle; }
+  .mini-pause rect { stroke-dasharray: 4 3; stroke: var(--warm); }
+  .mini-catch rect { stroke-dasharray: 4 3; stroke: var(--danger); }
+
+  .group-label { font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: 11px; letter-spacing: 0.08em; fill: var(--ink-muted); text-transform: uppercase; }
+
+  .flow { stroke: var(--ink-muted); stroke-width: 1.4; fill: none; marker-end: url(#arrow); }
+  .flow-accent { stroke: var(--accent); stroke-width: 1.6; fill: none; marker-end: url(#arrow-accent); }
+  .flow-dashed { stroke: var(--ink-muted); stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrow); }
+  .flow-accent-dashed { stroke: var(--accent); stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrow-accent); }
+  .flow-catch { stroke: var(--danger); stroke-width: 1.3; fill: none; stroke-dasharray: 3 3; marker-end: url(#arrow-danger); }
+
+  .edge-label { font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: 10.5px; fill: var(--ink-muted); }
+  .edge-label-accent { fill: var(--accent); font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; margin: 16px 2px 0; font-size: 12px; color: var(--ink-muted); }
+  .legend span.swatch { display: inline-block; width: 22px; height: 2px; vertical-align: middle; margin-right: 6px; }
+  .legend .lg-item { display: inline-flex; align-items: center; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; }
+
+  figcaption { margin-top: 14px; color: var(--ink-muted); font-size: 13px; max-width: 76ch; }
+
+  section { margin-top: 56px; }
+
+  h2 { font-size: 18px; margin: 0 0 4px; }
+  .section-sub { color: var(--ink-muted); font-size: 13.5px; margin: 0 0 22px; }
+
+  .layer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .layer-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+
+  .layer-card h3 {
+    font-size: 13px;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .layer-card h3 .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  .layer-card ul { margin: 0; padding-left: 18px; }
+  .layer-card li { margin-bottom: 8px; font-size: 13px; }
+  .layer-card li:last-child { margin-bottom: 0; }
+  .layer-card code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 12px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .layer-card .note { color: var(--ink-muted); }
+
+  ol.flow-steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  ol.flow-steps li {
+    position: relative;
+    padding: 0 0 22px 40px;
+    border-left: 1px solid var(--border);
+    margin-left: 13px;
+    font-size: 14px;
+  }
+
+  ol.flow-steps li:last-child { border-left-color: transparent; padding-bottom: 0; }
+
+  ol.flow-steps li::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: -13px;
+    top: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  ol.flow-steps strong { font-weight: 600; }
+  ol.flow-steps .step-detail { color: var(--ink-muted); font-size: 13px; display: block; margin-top: 2px; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warm);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+  .callout strong { color: var(--warm); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--ink-muted);
+    font-size: 12.5px;
+  }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 0 44px;
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .stat .num {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+
+  .stat .label {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  .repo-tree {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+
+  .repo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+
+  .repo-card h3 {
+    font-size: 13.5px;
+    margin: 0 0 3px;
+  }
+
+  .repo-card .repo-desc {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin: 0 0 12px;
+  }
+
+  .repo-card dl { margin: 0; }
+  .repo-card dt {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 12px;
+    color: var(--ink);
+    margin-top: 8px;
+  }
+  .repo-card dt:first-child { margin-top: 0; }
+  .repo-card dd {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    margin: 2px 0 0;
+  }
+
+  .chain-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .chain-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .chain-table th, .chain-table td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .chain-table thead th {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+
+  .chain-table tbody tr:last-child td { border-bottom: none; }
+  .chain-table td:first-child {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .chain-table code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 12px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+</style>
+
+<div class="wrap">
+  <h1>Rennie Content Pipeline — Architecture</h1>
+  <p class="subtitle">A human-in-the-loop AI content pipeline on AWS: three Bedrock AgentCore agents, a Step Functions state machine, and a React frontend, wired together with Terraform.</p>
+  <div class="meta-row">
+    <span class="chip">Terraform</span>
+    <span class="chip">Bedrock AgentCore</span>
+    <span class="chip">Strands Agents SDK</span>
+    <span class="chip">Step Functions</span>
+    <span class="chip">React + Vite</span>
+    <span class="chip">Cognito</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="stat-strip">
+    <div class="stat"><span class="num">6</span><span class="label">Lambda functions</span></div>
+    <div class="stat"><span class="num">1</span><span class="label">Step Functions state machine</span></div>
+    <div class="stat"><span class="num">3</span><span class="label">AgentCore Runtimes</span></div>
+    <div class="stat"><span class="num">8</span><span class="label">API routes</span></div>
+    <div class="stat"><span class="num">3</span><span class="label">DynamoDB tables</span></div>
+    <div class="stat"><span class="num">2</span><span class="label">S3 buckets</span></div>
+    <div class="stat"><span class="num">7</span><span class="label">Terraform modules</span></div>
+  </div>
+</div>
+
+<div class="wrap-wide">
+  <figure>
+    <div class="diagram-shell">
+      <svg class="arch" viewBox="0 0 1400 1150" role="img" aria-label="Architecture diagram: a browser authenticates via Cognito and loads a React SPA from CloudFront and S3, then calls three API Gateway Lambdas which read and write DynamoDB and start a Step Functions state machine; that state machine's Lambdas invoke the Orchestrator AgentCore Runtime, which coordinates the Writer and Reviewer AgentCore Runtimes and an optional fetch_url tool, all calling Bedrock's Claude model with adaptive retry on throttling and extended read timeouts, with every draft mirrored to S3 and the Orchestrator writing live which-agent-is-working-now progress straight back to DynamoDB as it runs.">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--ink-muted)"></path>
+          </marker>
+          <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--accent)"></path>
+          </marker>
+          <marker id="arrow-danger" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--danger)"></path>
+          </marker>
+        </defs>
+
+        <!-- ===================== Row A: Client / Auth ===================== -->
+        <text x="40" y="48" class="group-label">Client</text>
+
+        <g class="node node-human">
+          <rect x="40" y="60" width="270" height="90" rx="9"></rect>
+          <text x="56" y="88" class="node-title">Cognito User Pool</text>
+          <text x="56" y="106" class="node-sub">groups: requesters, reviewers</text>
+          <text x="56" y="122" class="node-sub">Hosted UI · PKCE · JWT</text>
+        </g>
+
+        <g class="node node-human">
+          <rect x="340" y="60" width="270" height="90" rx="9"></rect>
+          <text x="356" y="88" class="node-title">Browser (user)</text>
+          <text x="356" y="106" class="node-sub">Requester or Reviewer</text>
+          <text x="356" y="122" class="node-sub">React SPA, react-oidc-context</text>
+        </g>
+
+        <g class="node">
+          <rect x="640" y="60" width="280" height="90" rx="9"></rect>
+          <text x="656" y="88" class="node-title">CloudFront + S3</text>
+          <text x="656" y="106" class="node-sub">static SPA hosting (OAC)</text>
+          <text x="656" y="122" class="node-sub">SPA-fallback routing</text>
+        </g>
+
+        <path class="flow" d="M340,95 L310,95"></path>
+        <text x="317" y="88" class="edge-label">login redirect</text>
+        <path class="flow" d="M310,115 L340,115"></path>
+        <text x="317" y="132" class="edge-label">id_token, access_token</text>
+
+        <path class="flow" d="M640,95 L610,95"></path>
+        <text x="613" y="88" class="edge-label" text-anchor="end">serves SPA</text>
+
+        <path class="flow" d="M475,150 L475,196" marker-end="url(#arrow)"></path>
+        <text x="483" y="180" class="edge-label">HTTPS + Bearer JWT</text>
+
+        <!-- ===================== Row B: API Gateway ===================== -->
+        <g class="node">
+          <rect x="40" y="200" width="880" height="50" rx="9"></rect>
+          <text x="56" y="222" class="node-title">API Gateway — HTTP API</text>
+          <text x="56" y="239" class="node-sub">Cognito JWT authorizer on every route · group checks done inside each Lambda</text>
+        </g>
+
+        <path class="flow" d="M175,250 L175,286" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M475,250 L475,286" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M775,250 L775,286" marker-end="url(#arrow)"></path>
+
+        <!-- ===================== Row B2: API lambdas ===================== -->
+        <text x="40" y="278" class="group-label">API — routes</text>
+
+        <g class="node">
+          <rect x="40" y="290" width="270" height="80" rx="9"></rect>
+          <text x="56" y="316" class="node-title">chat_handler</text>
+          <text x="56" y="334" class="node-sub">POST /chat</text>
+          <text x="56" y="350" class="node-sub">creates job, starts execution</text>
+        </g>
+
+        <g class="node">
+          <rect x="340" y="290" width="270" height="80" rx="9"></rect>
+          <text x="356" y="316" class="node-title">history_handler</text>
+          <text x="356" y="334" class="node-sub">GET /jobs, /conversations</text>
+          <text x="356" y="350" class="node-sub">GET /jobs/{id}/artifacts/{stage}</text>
+        </g>
+
+        <g class="node">
+          <rect x="640" y="290" width="270" height="80" rx="9"></rect>
+          <text x="656" y="316" class="node-title">review_handler</text>
+          <text x="656" y="334" class="node-sub">POST /jobs/{id}/review</text>
+          <text x="656" y="350" class="node-sub">POST /jobs/{id}/stop</text>
+        </g>
+
+        <!-- Data column: DynamoDB -->
+        <text x="980" y="278" class="group-label">Data</text>
+        <g class="node node-store">
+          <rect x="980" y="290" width="380" height="260" rx="9"></rect>
+          <text x="996" y="316" class="node-title">DynamoDB</text>
+          <text x="996" y="336" class="node-sub">conversations (user_id, conv_id)</text>
+          <text x="996" y="352" class="node-sub">messages (conv_id, sort_key)</text>
+          <text x="996" y="368" class="node-sub">content_jobs (job_id)</text>
+          <text x="996" y="388" class="node-sub">+ by_status / by_conversation GSIs</text>
+          <text x="996" y="410" class="node-sub" style="opacity:.8">status · current_step · drafts ·</text>
+          <text x="996" y="426" class="node-sub" style="opacity:.8">execution_arn · review_task_token · s3 keys</text>
+        </g>
+
+        <path class="flow" d="M310,320 L978,320" marker-end="url(#arrow)"></path>
+        <text x="640" y="313" class="edge-label" text-anchor="middle">writes job + message</text>
+        <path class="flow" d="M610,346 L978,346" marker-end="url(#arrow)"></path>
+        <text x="794" y="339" class="edge-label" text-anchor="middle">reads</text>
+        <path class="flow" d="M910,360 L978,442" marker-end="url(#arrow)"></path>
+        <text x="924" y="400" class="edge-label" text-anchor="start">reads / updates</text>
+
+        <path class="flow" d="M175,370 L175,428" marker-end="url(#arrow)"></path>
+        <text x="183" y="404" class="edge-label">StartExecution</text>
+
+        <!-- ===================== Row C: Step Functions ===================== -->
+        <text x="40" y="418" class="group-label">Orchestration</text>
+
+        <g class="node">
+          <rect x="40" y="430" width="880" height="170" rx="9"></rect>
+          <text x="56" y="452" class="node-title">Step Functions — content-pipeline (one execution per job)</text>
+        </g>
+
+        <g class="mini">
+          <rect x="60" y="468" width="150" height="36" rx="6"></rect>
+          <text x="135" y="490">ProduceInitialDraft</text>
+        </g>
+        <g class="mini mini-pause">
+          <rect x="230" y="468" width="160" height="36" rx="6"></rect>
+          <text x="310" y="490">PrepareHumanReview</text>
+        </g>
+        <g class="mini">
+          <rect x="410" y="468" width="140" height="36" rx="6"></rect>
+          <text x="480" y="490">CheckHumanDecision</text>
+        </g>
+        <g class="mini">
+          <rect x="570" y="462" width="150" height="26" rx="6"></rect>
+          <text x="645" y="479">FinalizeApproved</text>
+        </g>
+        <g class="mini">
+          <rect x="570" y="496" width="150" height="26" rx="6"></rect>
+          <text x="645" y="513">FinalizeEscalated</text>
+        </g>
+        <g class="mini">
+          <rect x="410" y="540" width="140" height="26" rx="6"></rect>
+          <text x="480" y="557">ReviseDraft</text>
+        </g>
+        <g class="mini mini-catch">
+          <rect x="590" y="540" width="130" height="26" rx="6"></rect>
+          <text x="655" y="557">MarkFailed</text>
+        </g>
+
+        <path class="flow" d="M210,486 L228,486" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M390,486 L408,486" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M550,478 L568,475" marker-end="url(#arrow)"></path>
+        <text x="559" y="468" class="edge-label">approved</text>
+        <path class="flow" d="M550,494 L568,506" marker-end="url(#arrow)"></path>
+        <text x="530" y="522" class="edge-label">rejected, at cap</text>
+        <path class="flow" d="M480,504 L480,538" marker-end="url(#arrow)"></path>
+        <text x="488" y="524" class="edge-label">rejected, under cap</text>
+        <path class="flow" d="M410,553 C 330,590 260,540 232,504" marker-end="url(#arrow)"></path>
+        <text x="270" y="592" class="edge-label">revise, then review again</text>
+        <path class="flow-catch" d="M135,504 C 200,560 300,570 588,553"></path>
+        <text x="330" y="585" class="edge-label" style="fill:var(--danger)">on error / timeout</text>
+
+        <!-- S3 artifacts -->
+        <g class="node node-store">
+          <rect x="980" y="590" width="380" height="140" rx="9"></rect>
+          <text x="996" y="616" class="node-title">S3 — content-artifacts</text>
+          <text x="996" y="636" class="node-sub">jobs/{id}/initial_draft.md</text>
+          <text x="996" y="652" class="node-sub">jobs/{id}/ai_reviewed_draft.md</text>
+          <text x="996" y="668" class="node-sub">jobs/{id}/revision-N.md</text>
+          <text x="996" y="684" class="node-sub">jobs/{id}/final_draft.md</text>
+          <text x="996" y="704" class="node-sub" style="opacity:.8">versioned · presigned GET on demand</text>
+        </g>
+
+        <path class="flow" d="M910,346 C 950,380 960,420 978,650" marker-end="url(#arrow)"></path>
+        <text x="925" y="380" class="edge-label">presigned URL</text>
+
+        <!-- ===================== Row C2: pipeline lambdas ===================== -->
+        <text x="40" y="668" class="group-label">Orchestration — tasks</text>
+
+        <g class="node">
+          <rect x="40" y="680" width="270" height="80" rx="9"></rect>
+          <text x="56" y="706" class="node-title">pipeline_task_writer</text>
+          <text x="56" y="724" class="node-sub">mode=initial → Orchestrator</text>
+          <text x="56" y="740" class="node-sub">mode=revise → Writer</text>
+        </g>
+
+        <g class="node">
+          <rect x="340" y="680" width="270" height="80" rx="9"></rect>
+          <text x="356" y="706" class="node-title">pipeline_task_reviewer</text>
+          <text x="356" y="724" class="node-sub">waitForTaskToken</text>
+          <text x="356" y="740" class="node-sub">persists review_task_token</text>
+        </g>
+
+        <g class="node">
+          <rect x="640" y="680" width="270" height="80" rx="9"></rect>
+          <text x="656" y="706" class="node-title">pipeline_finalize</text>
+          <text x="656" y="724" class="node-sub">writes final_draft</text>
+          <text x="656" y="740" class="node-sub">status: completed / escalated / failed</text>
+        </g>
+
+        <path class="flow" d="M135,600 L135,678" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M330,600 L400,678" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M645,600 L775,678" marker-end="url(#arrow)"></path>
+
+        <path class="flow" d="M280,680 L780,346" marker-end="url(#arrow)"></path>
+        <text x="560" y="500" class="edge-label" style="opacity:0">.</text>
+
+        <!-- writer/finalize -> dynamo + s3 (down from row B2 already shown); writer -> S3 -->
+        <path class="flow" d="M310,730 L978,660" marker-end="url(#arrow)"></path>
+        <text x="640" y="704" class="edge-label" text-anchor="middle">writes drafts</text>
+
+        <!-- ===================== Row D: Agents ===================== -->
+        <text x="40" y="878" class="group-label">Agents — Bedrock AgentCore Runtime</text>
+
+        <g class="node node-agent">
+          <rect x="40" y="890" width="270" height="90" rx="9"></rect>
+          <text x="56" y="918" class="node-title">Writer</text>
+          <text x="56" y="936" class="node-sub">drafts / revises content</text>
+          <text x="56" y="952" class="node-sub">Strands Agent → Bedrock</text>
+        </g>
+
+        <g class="node node-agent">
+          <rect x="340" y="890" width="270" height="90" rx="9"></rect>
+          <text x="356" y="918" class="node-title">Orchestrator</text>
+          <text x="356" y="936" class="node-sub">coordinates the AI review loop</text>
+          <text x="356" y="952" class="node-sub">tools: draft_content, review_content, fetch_url</text>
+        </g>
+
+        <g class="node node-agent">
+          <rect x="640" y="890" width="270" height="90" rx="9"></rect>
+          <text x="656" y="918" class="node-title">Reviewer</text>
+          <text x="656" y="936" class="node-sub">structured approve/feedback</text>
+          <text x="656" y="952" class="node-sub">Strands Agent → Bedrock</text>
+        </g>
+
+        <path class="flow" d="M140,760 L175,888" marker-end="url(#arrow)"></path>
+        <text x="148" y="828" class="edge-label">mode=revise</text>
+        <path class="flow-accent" d="M210,760 L462,888" marker-end="url(#arrow-accent)"></path>
+        <text x="330" y="815" class="edge-label edge-label-accent">mode=initial (invoke)</text>
+
+        <path class="flow-accent" d="M340,925 L310,925" marker-end="url(#arrow-accent)"></path>
+        <text x="325" y="915" class="edge-label edge-label-accent" text-anchor="middle">draft_content</text>
+        <path class="flow-accent" d="M610,925 L640,925" marker-end="url(#arrow-accent)"></path>
+        <text x="625" y="915" class="edge-label edge-label-accent" text-anchor="middle">review_content</text>
+
+        <path class="flow-accent-dashed" d="M610,895 C 940,860 955,650 978,548"></path>
+        <text x="968" y="700" class="edge-label edge-label-accent" text-anchor="end">current_step (live progress,</text>
+        <text x="968" y="714" class="edge-label edge-label-accent" text-anchor="end">best-effort)</text>
+
+        <!-- external sources -->
+        <g class="node node-store">
+          <rect x="980" y="760" width="380" height="90" rx="9"></rect>
+          <text x="996" y="786" class="node-title">Reference sources (internet)</text>
+          <text x="996" y="806" class="node-sub">NHS, WHO, EMA, Cochrane, etc.</text>
+          <text x="996" y="826" class="node-sub">no server-side allowlist yet</text>
+        </g>
+        <path class="flow-dashed" d="M540,890 C 700,830 850,800 978,805"></path>
+        <text x="700" y="852" class="edge-label">fetch_url(source) — optional</text>
+
+        <!-- ===================== Row E: Bedrock ===================== -->
+        <path class="flow" d="M175,980 L175,1018" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M475,980 L475,1018" marker-end="url(#arrow)"></path>
+        <path class="flow" d="M775,980 L775,1018" marker-end="url(#arrow)"></path>
+
+        <g class="node">
+          <rect x="40" y="1020" width="880" height="80" rx="9"></rect>
+          <text x="475" y="1052" class="node-title" text-anchor="middle">Amazon Bedrock</text>
+          <text x="475" y="1070" class="node-sub" text-anchor="middle">Claude Sonnet 4.5 · Converse API · Titan embeddings (Knowledge Base, ad hoc)</text>
+          <text x="475" y="1086" class="node-sub" text-anchor="middle" style="opacity:.8">adaptive retry on throttling · extended read timeouts on every Runtime call</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">
+      <span class="lg-item"><span class="swatch" style="background:var(--ink-muted)"></span>request / data flow</span>
+      <span class="lg-item"><span class="swatch" style="background:var(--accent)"></span>agent-to-agent invocation</span>
+      <span class="lg-item"><span class="swatch" style="background:var(--ink-muted);background-image:linear-gradient(90deg,var(--ink-muted) 60%,transparent 40%);background-size:8px 2px"></span>conditional / async</span>
+      <span class="lg-item"><span class="swatch" style="background:var(--accent);background-image:linear-gradient(90deg,var(--accent) 60%,transparent 40%);background-size:8px 2px"></span>best-effort progress write</span>
+      <span class="lg-item"><span class="dot" style="background:var(--warm-soft);border:1.5px solid var(--warm)"></span>human touchpoint</span>
+      <span class="lg-item"><span class="dot" style="background:var(--accent-soft);border:1.5px solid var(--accent)"></span>AI agent runtime</span>
+    </div>
+    <figcaption>End-to-end shape of the system: a request enters through Cognito-authenticated API routes, DynamoDB holds job state throughout, Step Functions drives the human-in-the-loop review cycle, and three independently-deployed Bedrock AgentCore agents do the actual writing and reviewing — with every draft version mirrored to S3, the Orchestrator streaming "which agent is working now" straight back to DynamoDB as it runs, and every Bedrock/Runtime call carrying adaptive retry and an extended read timeout to survive throttling under concurrent load.</figcaption>
+  </figure>
+</div>
+
+<div class="wrap">
+  <section>
+    <h2>By layer</h2>
+    <p class="section-sub">What each piece actually does, and the non-obvious parts worth knowing.</p>
+    <div class="layer-grid">
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--warm)"></span>Frontend &amp; auth</h3>
+        <ul>
+          <li>React + Vite + TypeScript SPA, hosted on <code>S3</code> behind <code>CloudFront</code> (Origin Access Control, no public bucket)</li>
+          <li>Cognito Hosted UI, Authorization Code + PKCE, via <code>react-oidc-context</code></li>
+          <li>Two groups: <code>requesters</code> (submit briefs) and <code>reviewers</code> (approve/reject) — enforced inside each Lambda by reading the <code>cognito:groups</code> claim, not at the API Gateway layer</li>
+          <li class="note">CloudFront custom error responses (403/404 → index.html) make client-side routing work on direct URL loads</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--ink-muted)"></span>API</h3>
+        <ul>
+          <li>API Gateway <strong>HTTP API</strong> (not REST) with a native Cognito JWT authorizer</li>
+          <li><code>chat_handler</code> — creates the job, kicks off the pipeline</li>
+          <li><code>history_handler</code> — reads conversations/jobs, issues presigned S3 download URLs</li>
+          <li><code>review_handler</code> — resumes a paused execution (approve/reject) or stops one outright</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--ink-muted)"></span>Orchestration</h3>
+        <ul>
+          <li>One Step Functions <strong>Standard</strong> execution per job, named after the <code>job_id</code></li>
+          <li><code>PrepareHumanReview</code> pauses the whole execution (<code>waitForTaskToken</code>) until a human acts — no polling, no timeout pressure</li>
+          <li>Rejections loop back through <code>ReviseDraft</code> up to <code>max_human_review_iterations</code>, then auto-escalate</li>
+          <li>A <code>Catch</code> on the Lambda tasks routes real failures to <code>MarkFailed</code> instead of leaving a job silently stuck</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--accent)"></span>Agents</h3>
+        <ul>
+          <li>Three independently-deployed <strong>Bedrock AgentCore Runtime</strong> containers (Strands Agents SDK, ARM64), each its own ECR repo and IAM execution role</li>
+          <li>Orchestrator calls Writer and Reviewer directly via <code>bedrock-agentcore:InvokeAgentRuntime</code> — both an identity policy on the caller <em>and</em> a resource policy on the callee are required</li>
+          <li>Orchestrator's <code>fetch_url</code> tool actually crawls a given reference URL and grounds the draft in it, when one is supplied</li>
+          <li>Orchestrator returns clean structured fields (captured straight from its tool calls) rather than parsing the model's own narration</li>
+          <li>Orchestrator writes a live <code>current_step</code> string to <code>content_jobs</code> before every Writer/Reviewer/<code>fetch_url</code> call — "Writer agent is drafting (round 2 of 3)…" — best-effort, polled by the frontend so a 150-300s run isn't a frozen screen</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--ink-muted)"></span>Data</h3>
+        <ul>
+          <li><code>DynamoDB</code>, pay-per-request: <code>conversations</code>, <code>messages</code>, <code>content_jobs</code> (with <code>by_status</code> / <code>by_conversation</code> GSIs)</li>
+          <li><code>content_jobs</code> is the single source of truth the whole UI reads — status, <code>current_step</code>, every draft stage, review counters, the Step Functions execution ARN</li>
+          <li><code>S3</code> mirrors every draft version as its own object — an audit trail DynamoDB's overwrite-in-place fields don't keep</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--danger)"></span>Resilience (learned the hard way)</h3>
+        <ul>
+          <li>Every Bedrock model call and every <code>InvokeAgentRuntime</code> call uses <strong>adaptive-mode retry</strong> — under concurrent test load, the account's on-demand Bedrock throttling was routine, not exceptional, and used to crash a Runtime invocation outright (500)</li>
+          <li>Every <code>InvokeAgentRuntime</code> caller sets an <strong>extended <code>read_timeout</code></strong> — <code>boto3</code>'s 60s default was silently killing every real Orchestrator call client-side, since that call blocks with zero bytes until the whole 150-300s draft/review loop finishes</li>
+          <li>A failed sub-call no longer burns one of the Orchestrator's 3 AI-review rounds — an infra hiccup isn't a real review</li>
+          <li><code>pipeline_task_writer</code>'s own Lambda timeout (480s) stays the ultimate ceiling under all of the above, so a genuine hang still reaches Step Functions' <code>Catch</code> → <code>MarkFailed</code> instead of hanging forever</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h3><span class="dot" style="background:var(--ink-muted)"></span>Not always running</h3>
+        <ul>
+          <li>Knowledge Base (OpenSearch Serverless + Bedrock KB) — built, tested end to end, then torn down; stands up only for a deliberate one-off test</li>
+          <li>Everything else here is pay-per-use or idle-free (DynamoDB on-demand, Lambda, Step Functions, AgentCore Runtime) — OpenSearch Serverless is the one component that bills while idle</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Repository layout</h2>
+    <p class="section-sub">Every folder that fed into the diagram above, and what actually lives in it.</p>
+    <div class="repo-tree">
+      <div class="repo-card">
+        <h3><code>agents/</code></h3>
+        <p class="repo-desc">The 3 AgentCore Runtime containers — Python, Strands Agents SDK, one Dockerfile each (ARM64, required by AgentCore Runtime).</p>
+        <dl>
+          <dt>writer/agent.py</dt><dd>Drafts or revises content from a brief. No opinion of its own on quality — that's the Reviewer's job.</dd>
+          <dt>reviewer/agent.py</dt><dd>Critiques a draft against the brief, returns a structured <code>{approved, feedback}</code> via Pydantic <code>structured_output</code>.</dd>
+          <dt>orchestrator/agent.py</dt><dd>Coordinates Writer↔Reviewer, owns <code>fetch_url</code>, writes live <code>current_step</code> progress, enforces the AI-review round cap.</dd>
+          <dt>*/Dockerfile, */requirements.txt</dt><dd>Container build — <code>uv pip install</code>, non-root user, <code>bedrock-agentcore</code> + <code>strands-agents</code> SDKs.</dd>
+        </dl>
+      </div>
+      <div class="repo-card">
+        <h3><code>lambdas/</code></h3>
+        <p class="repo-desc">The 6 Lambda handlers — 3 behind API Gateway, 3 behind Step Functions. Each is its own independent deploy package (no shared layer).</p>
+        <dl>
+          <dt>chat_handler/handler.py</dt><dd><code>POST /chat</code> — creates the job, starts the Step Functions execution.</dd>
+          <dt>history_handler/handler.py</dt><dd>All the <code>GET</code> routes — conversations, jobs, presigned artifact downloads.</dd>
+          <dt>review_handler/handler.py</dt><dd><code>POST /jobs/{id}/review</code> and <code>/stop</code> — resumes or cancels a paused execution.</dd>
+          <dt>pipeline_task_writer/handler.py</dt><dd>Step Functions task — calls the Orchestrator (initial) or Writer (revise) Runtime.</dd>
+          <dt>pipeline_task_reviewer/handler.py</dt><dd>Step Functions task — persists the <code>waitForTaskToken</code> a human later resolves.</dd>
+          <dt>pipeline_finalize/handler.py</dt><dd>Step Functions task — writes the final draft, sets the terminal status.</dd>
+        </dl>
+      </div>
+      <div class="repo-card">
+        <h3><code>frontend/src/</code></h3>
+        <p class="repo-desc">React + Vite + TypeScript SPA. Env-configured per build via <code>.env.production</code> (API endpoint, Cognito IDs).</p>
+        <dl>
+          <dt>main.tsx, App.tsx</dt><dd>Entry point + <code>react-oidc-context</code> auth gate + routing.</dd>
+          <dt>api.ts</dt><dd>Typed <code>fetch</code> client — every call carries <code>Authorization: Bearer &lt;id_token&gt;</code>.</dd>
+          <dt>lib/groups.ts</dt><dd>Reads the <code>cognito:groups</code> claim off the JWT — powers <code>isReviewer()</code>.</dd>
+          <dt>components/StageTracker.tsx</dt><dd>The 4 clickable stage checkpoints, each with a "save this version" download.</dd>
+          <dt>components/ReviewPanel.tsx</dt><dd>Inline approve/reject — reviewer-gated, renders in-page rather than a separate tab.</dd>
+          <dt>pages/WebArticleForm.tsx</dt><dd>The main form + job status + 4s polling loop — the page everything else renders into.</dd>
+          <dt>pages/ContentTypeSelect.tsx, ComingSoon.tsx, ReviewerDashboard.tsx</dt><dd>Content-type picker, placeholders for the other 3 content types, and the standalone reviewer queue.</dd>
+        </dl>
+      </div>
+      <div class="repo-card">
+        <h3><code>terraform/modules/</code></h3>
+        <p class="repo-desc">7 reusable modules, instantiated by <code>terraform/envs/dev</code>. <code>agentcore_runtime</code> is instantiated 3 times, once per agent.</p>
+        <dl>
+          <dt>agentcore_runtime/</dt><dd><code>ecr.tf, iam.tf, runtime.tf, resource_policy.tf</code> — one ECR repo + execution role + Runtime + (for callable agents) resource policy.</dd>
+          <dt>api/</dt><dd><code>api_gateway.tf, lambdas.tf</code> — the HTTP API, JWT authorizer, and the 3 API-side Lambdas.</dd>
+          <dt>pipeline_orchestration/</dt><dd><code>state_machine.tf, lambdas.tf, artifacts_bucket.tf</code> — the state machine, its 3 Lambdas, and the S3 artifacts bucket.</dd>
+          <dt>auth/</dt><dd>Cognito User Pool, app client, <code>requesters</code>/<code>reviewers</code> groups, Hosted UI domain.</dd>
+          <dt>data_store/</dt><dd>The 3 DynamoDB tables and their GSIs.</dd>
+          <dt>frontend_hosting/</dt><dd><code>main.tf</code> (S3 + CloudFront + OAC) and <code>deploy.tf</code> (uploads <code>frontend/dist</code> via <code>fileset()</code>).</dd>
+          <dt>knowledge_base/</dt><dd>OpenSearch Serverless + Bedrock KB — exists, but not instantiated (commented out in <code>main.tf</code>) per the one-test-then-destroy cost rule.</dd>
+        </dl>
+      </div>
+      <div class="repo-card">
+        <h3><code>terraform/envs/dev/</code></h3>
+        <p class="repo-desc">The one deployable environment — wires every module above together with real values.</p>
+        <dl>
+          <dt>main.tf</dt><dd>Every module block, plus the plain-string role-ARN tricks that break circular module dependencies (see its own comments).</dd>
+          <dt>dev.tfvars</dt><dd>Actual values: model IDs, review-round caps, <code>agent_image_tag</code> — the one line bumped on every agent redeploy.</dd>
+          <dt>outputs.tf</dt><dd>What <code>terraform output</code> exposes — API endpoint, Cognito IDs, table names, the CloudFront URL.</dd>
+        </dl>
+      </div>
+      <div class="repo-card">
+        <h3><code>kb-sample-content/</code>, <code>docs/</code></h3>
+        <p class="repo-desc">Content, not code.</p>
+        <dl>
+          <dt>kb-sample-content/*.md</dt><dd>Brand-voice and legal-compliance sample docs used for the one-off Knowledge Base test.</dd>
+          <dt>docs/</dt><dd>Empty — no written docs beyond this diagram and inline code comments yet.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Frontend → Orchestrator: the full call chain</h2>
+    <p class="section-sub">Every hop a request takes from clicking "Save &amp; Generate Content" to actually reaching the Orchestrator's AgentCore Runtime endpoint.</p>
+    <div class="chain-table-wrap">
+      <table class="chain-table">
+        <thead>
+          <tr><th>Hop</th><th>What happens</th><th>Configuration</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Browser calls the API</td>
+            <td><code>fetch(`${VITE_API_ENDPOINT}/chat`)</code> with <code>Authorization: Bearer &lt;id_token&gt;</code>, from <code>frontend/src/api.ts</code>. <code>VITE_API_ENDPOINT</code> is baked in at build time via <code>frontend/.env.production</code>.</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>API Gateway authenticates + routes</td>
+            <td>HTTP API route <code>POST /chat</code>. A native JWT authorizer checks the token's issuer (<code>https://cognito-idp.&lt;region&gt;.amazonaws.com/&lt;user_pool_id&gt;</code>) and audience (the app client ID) before the request ever reaches Lambda.</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Lambda proxy integration</td>
+            <td><code>AWS_PROXY</code> integration, payload format 2.0, target <code>chat_handler</code>. A matching <code>aws_lambda_permission</code> is what actually lets API Gateway invoke it.</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><code>chat_handler</code> starts the pipeline</td>
+            <td>Writes the job to DynamoDB (<code>status: queued</code>), then <code>stepfunctions:StartExecution</code> on <code>content-pipeline</code> with <code>{job_id, brief}</code> as input — execution name = <code>job_id</code>.</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>State machine invokes a Lambda task</td>
+            <td>First state <code>ProduceInitialDraft</code> runs <code>pipeline_task_writer</code> with <code>mode: "initial"</code>.</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td><code>pipeline_task_writer</code> calls the Orchestrator</td>
+            <td><code>boto3.client("bedrock-agentcore").invoke_agent_runtime(agentRuntimeArn=ORCHESTRATOR_RUNTIME_ARN, payload={"brief", "job_id"})</code> — synchronous, blocks until the whole draft/review loop returns (<code>read_timeout=470</code> to survive that).</td>
+          </tr>
+          <tr>
+            <td>7</td>
+            <td>IAM double-check</td>
+            <td>Requires <strong>both</strong>: an identity policy on <code>pipeline-task-writer-exec</code> allowing <code>InvokeAgentRuntime</code> on the Orchestrator's runtime ARN <em>and</em> its <code>/runtime-endpoint/*</code> sub-resource, <strong>and</strong> a resource policy on the Orchestrator's runtime naming that same role as an allowed principal.</td>
+          </tr>
+          <tr>
+            <td>8</td>
+            <td>Request lands on the endpoint</td>
+            <td>Physically resolves to <code>&lt;orchestrator_runtime_arn&gt;/runtime-endpoint/DEFAULT</code> — the Orchestrator container's <code>@app.entrypoint</code> (<code>BedrockAgentCoreApp</code>, HTTP protocol) receives the payload and takes it from there.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>One request, start to finish</h2>
+    <p class="section-sub">What actually happens between clicking "Save &amp; Generate Content" and a final, approved draft.</p>
+    <ol class="flow-steps">
+      <li><strong>Submit.</strong> <code>chat_handler</code> writes the conversation, the message, and a new <code>content_jobs</code> row (<code>status: queued</code>), then starts the Step Functions execution.
+        <span class="step-detail">One execution per job — it lives for the job's entire lifetime, including every later revision.</span>
+      </li>
+      <li><strong>AI draft + AI review.</strong> <code>pipeline_task_writer</code> invokes the Orchestrator, which optionally fetches a reference URL, calls the Writer for a first draft, then the Reviewer for a critique — looping revise↔review up to a capped number of AI rounds.
+        <span class="step-detail">Both the raw first draft and the post-AI-review draft are saved separately, to DynamoDB and S3. The requester's own page shows which of these is happening live, via the Orchestrator's <code>current_step</code> writes.</span>
+      </li>
+      <li><strong>Hand off to a human.</strong> The execution reaches <code>PrepareHumanReview</code> and genuinely pauses — the task token is stored on the job, and nothing runs again until a reviewer acts.
+        <span class="step-detail">This is where the job sits at <code>status: pending_human_review</code>, visible on the requester's own page.</span>
+      </li>
+      <li><strong>A reviewer decides.</strong> Approve resumes the execution straight to <code>FinalizeApproved</code>. Reject-with-feedback sends that feedback to the Writer for a direct revision (no AI review loop this time), and the job returns to step 3.
+        <span class="step-detail">Past the configured cap, a rejection escalates instead of looping again.</span>
+      </li>
+      <li><strong>Finalize.</strong> <code>pipeline_finalize</code> writes the final draft to DynamoDB and S3 and sets a terminal status — <code>completed</code>, <code>escalated</code>, <code>stopped</code>, or <code>failed</code>.
+        <span class="step-detail">A requester or reviewer can also call <code>/stop</code> at any point in flight, which cancels the execution directly.</span>
+      </li>
+    </ol>
+  </section>
+
+  <div class="callout">
+    <strong>Note —</strong> this reflects the system as actually deployed and tested against real AWS, not a plan: every arrow above has been exercised end to end at least once, including two real production failure modes (Bedrock throttling crashing a Runtime call, and a client-side read timeout killing every job before human review) that were root-caused from live CloudWatch/Step-Functions state and fixed, not assumed.
+  </div>
+
+  <footer>
+    Rennie Content Pipeline · Terraform-managed, us-east-1 · agents/{writer,reviewer,orchestrator} · terraform/modules/{agentcore_runtime,pipeline_orchestration,api,frontend_hosting,knowledge_base}
+  </footer>
+</div>
