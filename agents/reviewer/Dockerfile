@@ -1,0 +1,23 @@
+# Bedrock AgentCore Runtime requires linux/arm64 images.
+# Build with: docker buildx build --platform linux/arm64 -t <tag> .
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+WORKDIR /app
+
+ENV UV_SYSTEM_PYTHON=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_PROGRESS=1 \
+    PYTHONUNBUFFERED=1 \
+    DOCKER_CONTAINER=1
+
+COPY requirements.txt requirements.txt
+RUN uv pip install -r requirements.txt
+
+RUN useradd -m -u 1000 bedrock_agentcore
+USER bedrock_agentcore
+
+EXPOSE 8080
+
+COPY . .
+
+CMD ["python", "agent.py"]

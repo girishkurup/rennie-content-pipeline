@@ -1,0 +1,44 @@
+# Terraform
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/tfplan*
+**/*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform Lambda zip build output (data.archive_file writes here)
+**/.build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node / frontend build output
+node_modules/
+frontend/dist/
+
+# Account-specific frontend config — generated per deployment by
+# scripts/generate_frontend_env.sh, see docs/deployment.md. Commit
+# frontend/.env.example instead as the template.
+frontend/.env.production
+frontend/.env.development
+
+# Local agent dev server logs (agentcore dev / python agent.py)
+agents/*/server.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Claude Code session state
+.claude/
