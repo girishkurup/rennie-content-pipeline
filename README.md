@@ -25,33 +25,100 @@ cap, then auto-escalates. Every draft version is saved as its own artifact,
 and the requester's page shows live "which agent is working right now"
 status while a run is in progress.
 
-For the full technical breakdown — every hop from the frontend to the
-Orchestrator's AgentCore Runtime endpoint, the Step Functions state
-machine's actual states, IAM requirements, and file-by-file repo layout —
-see [`docs/architecture.html`](docs/architecture.html) (open it directly in
-a browser, it's self-contained) or read through `terraform/` and `agents/`
-directly; the code comments carry a lot of the "why," not just the "what."
-
 ## Architecture at a glance
 
+```mermaid
+flowchart TD
+    subgraph Client["Client"]
+        Cognito["Cognito User Pool<br/>groups: requesters, reviewers"]
+        Browser["Browser (user)<br/>React SPA"]
+        CF["CloudFront + S3<br/>static SPA hosting"]
+    end
+
+    subgraph API["API — HTTP API, Cognito JWT authorizer"]
+        APIGW["API Gateway"]
+        ChatH["chat_handler<br/>POST /chat"]
+        HistH["history_handler<br/>GET routes"]
+        RevH["review_handler<br/>POST /review, /stop"]
+    end
+
+    subgraph Data["Data"]
+        Dynamo[("DynamoDB<br/>conversations, messages, content_jobs")]
+        S3A[("S3 — content-artifacts<br/>versioned drafts")]
+    end
+
+    subgraph Orchestration["Orchestration"]
+        SFN{{"Step Functions<br/>content-pipeline"}}
+        TaskWriter["pipeline_task_writer"]
+        TaskReviewer["pipeline_task_reviewer"]
+        Finalize["pipeline_finalize"]
+    end
+
+    subgraph Agents["Agents — Bedrock AgentCore Runtime"]
+        Writer["Writer agent"]
+        Orch["Orchestrator agent"]
+        Reviewer["Reviewer agent"]
+    end
+
+    Bedrock["Amazon Bedrock<br/>Claude Sonnet 4.5"]
+    External["Reference sources<br/>NHS, WHO, etc."]
+
+    Browser -- "login redirect" --> Cognito
+    Cognito -- "id_token" --> Browser
+    CF -- "serves SPA" --> Browser
+    Browser -- "HTTPS + Bearer JWT" --> APIGW
+    APIGW --> ChatH
+    APIGW --> HistH
+    APIGW --> RevH
+
+    ChatH -- "writes job" --> Dynamo
+    ChatH -- "StartExecution" --> SFN
+    HistH -- "reads" --> Dynamo
+    HistH -- "presigned URL" --> S3A
+    RevH -- "reads/updates" --> Dynamo
+
+    SFN --> TaskWriter
+    SFN --> TaskReviewer
+    SFN --> Finalize
+    TaskWriter -- "writes drafts" --> Dynamo
+    TaskWriter -- "writes drafts" --> S3A
+    Finalize -- "writes final" --> Dynamo
+    Finalize -- "writes final" --> S3A
+
+    TaskWriter -- "mode=initial" --> Orch
+    TaskWriter -- "mode=revise" --> Writer
+    Orch -- "draft_content" --> Writer
+    Orch -- "review_content" --> Reviewer
+    Orch -. "current_step (live progress)" .-> Dynamo
+    Orch -. "fetch_url (optional)" .-> External
+
+    Writer --> Bedrock
+    Orch --> Bedrock
+    Reviewer --> Bedrock
 ```
-Browser (Cognito auth, PKCE)
-  -> CloudFront + S3 (React/Vite SPA)
-  -> API Gateway (HTTP API, JWT authorizer)
-       -> chat_handler / history_handler / review_handler  (3 Lambdas)
-            -> DynamoDB (conversations, messages, content_jobs)
-            -> Step Functions (1 state machine, 1 execution per job)
-                 -> pipeline_task_writer / _task_reviewer / _finalize (3 Lambdas)
-                      -> Orchestrator agent (Bedrock AgentCore Runtime)
-                           -> Writer agent, Reviewer agent (Bedrock AgentCore Runtime)
-                           -> fetch_url (optional, grounds the draft in a reference source)
-                           -> Bedrock (Claude Sonnet 4.5)
-                      -> S3 (every draft version, immutable per-stage artifacts)
+
+The Step Functions state machine's own states, in detail — one execution
+per job, reused across the whole job's lifetime including every revision:
+
+```mermaid
+flowchart LR
+    Start(["ProduceInitialDraft"]) --> Pause["PrepareHumanReview<br/>(waitForTaskToken — genuinely pauses)"]
+    Pause --> Check{"CheckHumanDecision"}
+    Check -- "approved" --> Approved(["FinalizeApproved"])
+    Check -- "rejected, rounds < cap" --> Revise["ReviseDraft"]
+    Check -- "rejected, at cap" --> Escalated(["FinalizeEscalated"])
+    Revise --> Pause
+    Start -. "on error/timeout" .-> Failed(["MarkFailed"])
+    Revise -. "on error/timeout" .-> Failed
 ```
 
 **By the numbers:** 6 Lambda functions · 1 Step Functions state machine · 3
 Bedrock AgentCore Runtime agents · 8 API routes · 3 DynamoDB tables · 2 S3
 buckets · 7 Terraform modules.
+
+For the richer version — repo layout, the full frontend→Orchestrator call
+chain with concrete config values, and the "learned the hard way" resilience
+notes — see [`docs/architecture.html`](docs/architecture.html).
 
 ## Repo layout
 
